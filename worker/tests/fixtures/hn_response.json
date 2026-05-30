@@ -1,0 +1,22 @@
+{
+  "hits": [
+    {
+      "title": "Show HN: I built a zero-shot SEO forecaster using open source models",
+      "points": 342,
+      "created_at_i": 1748000000,
+      "objectID": "1"
+    },
+    {
+      "title": "Groq releases 10x rate limits on free tier llama models",
+      "points": 210,
+      "created_at_i": 1748000100,
+      "objectID": "2"
+    },
+    {
+      "title": "",
+      "points": 5,
+      "created_at_i": 1748000200,
+      "objectID": "3"
+    }
+  ]
+}
