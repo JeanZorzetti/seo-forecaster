@@ -5,10 +5,12 @@ from worker.config import OLLAMA_URL, TOP_N_FINALISTS
 from worker.models import BreakoutCandidate, Finalist
 
 def get_embedding(text: str) -> list[float]:
+    base = OLLAMA_URL.rstrip("/")
     resp = httpx.post(
-        f"{OLLAMA_URL}/api/embeddings",
+        f"{base}/api/embeddings",
         json={"model": "nomic-embed-text", "prompt": text},
         timeout=30,
+        follow_redirects=True,
     )
     resp.raise_for_status()
     return resp.json()["embedding"]
