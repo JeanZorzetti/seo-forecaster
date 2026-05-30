@@ -1,17 +1,23 @@
-import json
 from unittest.mock import patch, MagicMock
 from worker.ingest.reddit import fetch_signals
 from worker.models import Signal
 
+FIXTURE_RESPONSE = {
+    "data": {
+        "children": [
+            {"data": {"title": "LLM agents are replacing junior devs", "score": 450, "created_utc": 1748000000}},
+            {"data": {"title": "Groq just added 10x rate limits on free tier", "score": 210, "created_utc": 1748000100}},
+        ]
+    }
+}
+
 def test_fetch_signals_returns_signals():
-    with patch("worker.ingest.reddit.praw.Reddit") as mock_reddit_cls:
-        mock_reddit = MagicMock()
-        mock_reddit_cls.return_value = mock_reddit
-        mock_post = MagicMock()
-        mock_post.title = "LLM agents are replacing junior devs"
-        mock_post.score = 450
-        mock_post.created_utc = 1748000000
-        mock_reddit.subreddit.return_value.hot.return_value = [mock_post]
+    with patch("worker.ingest.reddit.requests.get") as mock_get, \
+         patch("worker.ingest.reddit.time.sleep"):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = FIXTURE_RESPONSE
+        mock_resp.raise_for_status.return_value = None
+        mock_get.return_value = mock_resp
         signals = fetch_signals(subreddits=["MachineLearning"])
     assert len(signals) > 0
     assert all(isinstance(s, Signal) for s in signals)
@@ -21,17 +27,18 @@ def test_fetch_signals_returns_signals():
     assert all(s.timestamp.tzinfo is not None for s in signals)
 
 def test_fetch_signals_handles_empty():
-    with patch("worker.ingest.reddit.praw.Reddit") as mock_reddit_cls:
-        mock_reddit = MagicMock()
-        mock_reddit_cls.return_value = mock_reddit
-        mock_reddit.subreddit.return_value.hot.return_value = []
+    with patch("worker.ingest.reddit.requests.get") as mock_get, \
+         patch("worker.ingest.reddit.time.sleep"):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"data": {"children": []}}
+        mock_resp.raise_for_status.return_value = None
+        mock_get.return_value = mock_resp
         signals = fetch_signals(subreddits=["empty_sub"])
     assert signals == []
 
-def test_fetch_signals_continues_on_subreddit_error():
-    with patch("worker.ingest.reddit.praw.Reddit") as mock_reddit_cls:
-        mock_reddit = MagicMock()
-        mock_reddit_cls.return_value = mock_reddit
-        mock_reddit.subreddit.return_value.hot.side_effect = Exception("403 Forbidden")
+def test_fetch_signals_continues_on_error():
+    with patch("worker.ingest.reddit.requests.get") as mock_get, \
+         patch("worker.ingest.reddit.time.sleep"):
+        mock_get.side_effect = Exception("connection refused")
         signals = fetch_signals(subreddits=["banned_sub"])
     assert signals == []

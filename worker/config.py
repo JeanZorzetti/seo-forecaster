@@ -11,9 +11,6 @@ def _require(key: str) -> str:
 
 DATABASE_URL = _require("DATABASE_URL")
 GROQ_API_KEY = _require("GROQ_API_KEY")
-REDDIT_CLIENT_ID = _require("REDDIT_CLIENT_ID")
-REDDIT_CLIENT_SECRET = _require("REDDIT_CLIENT_SECRET")
-REDDIT_USER_AGENT = _require("REDDIT_USER_AGENT")
 GOOGLE_APPLICATION_CREDENTIALS = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 CHRONOS_SERVICE_URL = os.environ.get("CHRONOS_SERVICE_URL", "http://localhost:8001")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")

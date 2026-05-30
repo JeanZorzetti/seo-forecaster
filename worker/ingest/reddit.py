@@ -1,6 +1,6 @@
-import praw
+import time
+import requests
 from datetime import datetime, timezone
-from worker.config import REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT
 from worker.models import Signal
 from worker.ingest.utils import extract_terms
 
@@ -9,33 +9,33 @@ DEFAULT_SUBREDDITS = [
     "artificial", "SaaS", "startups", "webdev", "Python",
 ]
 
-def _make_reddit():
-    return praw.Reddit(
-        client_id=REDDIT_CLIENT_ID,
-        client_secret=REDDIT_CLIENT_SECRET,
-        user_agent=REDDIT_USER_AGENT,
-    )
+HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; SEOForecaster/1.0)"}
 
 def fetch_signals(subreddits: list[str] | None = None) -> list[Signal]:
-    reddit = _make_reddit()
     targets = subreddits or DEFAULT_SUBREDDITS
     signals = []
     for sub_name in targets:
         try:
-            sub = reddit.subreddit(sub_name)
-            for post in sub.hot(limit=50):
-                title = (post.title or "").strip()
+            url = f"https://www.reddit.com/r/{sub_name}/hot.json?limit=50"
+            resp = requests.get(url, headers=HEADERS, timeout=15)
+            resp.raise_for_status()
+            posts = resp.json().get("data", {}).get("children", [])
+            for child in posts:
+                post = child.get("data", {})
+                title = (post.get("title") or "").strip()
                 if not title:
                     continue
+                score = post.get("score") or 1
+                created = post.get("created_utc") or time.time()
                 for term in extract_terms(title):
                     signals.append(Signal(
                         term=term,
                         source="reddit",
-                        raw_count=max(post.score, 1),
-                        timestamp=datetime.fromtimestamp(post.created_utc, tz=timezone.utc),
+                        raw_count=max(score, 1),
+                        timestamp=datetime.fromtimestamp(created, tz=timezone.utc),
                         entities=[],
                     ))
+            time.sleep(1)  # respeita rate limit do JSON público (~10 req/min)
         except Exception:
             pass  # degraded: skip broken subreddit, don't crash pipeline
     return signals
-
