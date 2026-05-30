@@ -16,6 +16,9 @@ def test_fetch_signals_returns_signals():
     assert len(signals) > 0
     assert all(isinstance(s, Signal) for s in signals)
     assert all(s.source == "reddit" for s in signals)
+    assert any("llm agents" in s.term for s in signals)
+    assert any(s.raw_count == 450 for s in signals)
+    assert all(s.timestamp.tzinfo is not None for s in signals)
 
 def test_fetch_signals_handles_empty():
     with patch("worker.ingest.reddit.praw.Reddit") as mock_reddit_cls:

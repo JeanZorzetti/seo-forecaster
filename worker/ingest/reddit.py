@@ -2,6 +2,7 @@ import praw
 from datetime import datetime, timezone
 from worker.config import REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT
 from worker.models import Signal
+from worker.ingest.utils import extract_terms
 
 DEFAULT_SUBREDDITS = [
     "MachineLearning", "LocalLLaMA", "technology", "programming",
@@ -26,7 +27,7 @@ def fetch_signals(subreddits: list[str] | None = None) -> list[Signal]:
                 title = (post.title or "").strip()
                 if not title:
                     continue
-                for term in _extract_terms(title):
+                for term in extract_terms(title):
                     signals.append(Signal(
                         term=term,
                         source="reddit",
@@ -38,9 +39,3 @@ def fetch_signals(subreddits: list[str] | None = None) -> list[Signal]:
             pass  # degraded: skip broken subreddit, don't crash pipeline
     return signals
 
-def _extract_terms(title: str) -> list[str]:
-    terms = [title.lower()]
-    words = [w for w in title.lower().split() if len(w) > 3]
-    for i in range(len(words) - 1):
-        terms.append(f"{words[i]} {words[i+1]}")
-    return terms[:5]

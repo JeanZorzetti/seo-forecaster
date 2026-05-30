@@ -2,6 +2,7 @@ import time
 import requests
 from datetime import datetime, timezone
 from worker.models import Signal
+from worker.ingest.utils import extract_terms
 
 HN_API = "https://hn.algolia.com/api/v1/search_by_date"
 
@@ -12,16 +13,19 @@ def fetch_signals(lookback_hours: int = 24) -> list[Signal]:
         "hitsPerPage": 100,
         "numericFilters": f"created_at_i>{since}",
     }
-    resp = requests.get(HN_API, params=params, timeout=15)
-    resp.raise_for_status()
-    hits = resp.json().get("hits", [])
+    try:
+        resp = requests.get(HN_API, params=params, timeout=15)
+        resp.raise_for_status()
+        hits = resp.json().get("hits", [])
+    except Exception:
+        return []
 
     signals = []
     for hit in hits:
         title = (hit.get("title") or "").strip()
         if not title:
             continue
-        for term in _extract_terms(title):
+        for term in extract_terms(title):
             signals.append(Signal(
                 term=term,
                 source="hn",
@@ -30,10 +34,3 @@ def fetch_signals(lookback_hours: int = 24) -> list[Signal]:
                 entities=[],
             ))
     return signals
-
-def _extract_terms(title: str) -> list[str]:
-    terms = [title.lower()]
-    words = [w for w in title.lower().split() if len(w) > 3]
-    for i in range(len(words) - 1):
-        terms.append(f"{words[i]} {words[i+1]}")
-    return terms[:5]
