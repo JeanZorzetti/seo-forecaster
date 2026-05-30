@@ -65,7 +65,7 @@ export function PredictionDetail({ prediction: p }: Props) {
         </div>
       )}
 
-      {p.intents.length > 0 && (
+      {(p.intents?.length ?? 0) > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-gray-700 mb-3">
             Próximas buscas long-tail
@@ -78,7 +78,7 @@ export function PredictionDetail({ prediction: p }: Props) {
         </div>
       )}
 
-      {p.contentGaps.length > 0 && (
+      {(p.contentGaps?.length ?? 0) > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-gray-700 mb-3">Content gaps</h2>
           <ul className="space-y-1.5">

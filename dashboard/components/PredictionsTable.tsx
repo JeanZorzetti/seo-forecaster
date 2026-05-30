@@ -60,10 +60,7 @@ export function PredictionsTable({ predictions }: { predictions: Prediction[] })
             filtered.map((p) => (
               <tr key={p.id} className="border-b hover:bg-gray-50 transition-colors">
                 <td className="py-2 pr-4">
-                  <Link
-                    href={`/prediction/${p.id}`}
-                    className="text-blue-600 hover:underline font-medium"
-                  >
+                  <Link href={`/prediction/${p.id}`} className="text-blue-600 hover:underline font-medium">
                     {p.term}
                   </Link>
                 </td>
@@ -71,13 +68,7 @@ export function PredictionsTable({ predictions }: { predictions: Prediction[] })
                 <td className="py-2 pr-4 font-mono text-xs">{p.breakoutScore.toFixed(3)}</td>
                 <td className="py-2 pr-4"><StatusBadge status={p.status} /></td>
                 <td className="py-2 pr-4">
-                  <ConfidenceBadge
-                    confidence={
-                      p.forecast && typeof p.forecast === "object" && "confidence" in p.forecast
-                        ? (p.forecast as { confidence: number }).confidence
-                        : null
-                    }
-                  />
+                  <ConfidenceBadge confidence={p.forecast?.confidence ?? null} />
                 </td>
                 <td className="py-2 text-green-600 font-bold">
                   {Array.isArray(p.contentGaps) && p.contentGaps.length > 0 ? "✓" : ""}
