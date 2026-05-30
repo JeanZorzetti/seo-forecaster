@@ -47,6 +47,7 @@ def test_run_pipeline_populates_predictions():
     assert prediction.term == "llm agents"
     assert prediction.intents == ["how to use llm agents"]
     assert prediction.forecast == forecast_data
+    assert prediction.status == "maturing"  # peak_day=30 < 90*0.4=36 → maturing
 
     mock_finish.assert_called_once()
     finish_args = mock_finish.call_args[0]

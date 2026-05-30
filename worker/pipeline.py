@@ -54,7 +54,7 @@ def run_pipeline():
             result = compute_breakout_score(history)
             if result.breakout_score >= BREAKOUT_THRESHOLD:
                 entities = next(
-                    (s.entities for s in all_signals if s.term == term),
+                    (s.entities for s in all_signals if s.term == term and s.source == source),
                     []
                 )
                 candidates.append(BreakoutCandidate(
