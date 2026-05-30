@@ -24,7 +24,7 @@ class Finalist:
     term: str
     breakout_score: float
     relevance_score: float
-    matched_niche_id: int
+    matched_niche_id: Optional[int] = None
     entities: list[str] = field(default_factory=list)
 
 @dataclass
@@ -32,7 +32,7 @@ class Prediction:
     term: str
     breakout_score: float
     relevance_score: float
-    matched_niche_id: int
+    matched_niche_id: Optional[int] = None
     forecast: Optional[dict] = None   # {curve: [...], peak_day: int, confidence: float}
     intents: Optional[list] = None    # list of long-tail strings
     content_gaps: Optional[list] = None
