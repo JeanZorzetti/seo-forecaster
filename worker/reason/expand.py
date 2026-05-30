@@ -1,4 +1,5 @@
 import time
+from datetime import date
 from groq import Groq
 from worker.config import GROQ_API_KEY
 from worker.models import Finalist, Prediction
@@ -12,6 +13,8 @@ def _get_groq_client() -> Groq:
     return _groq_client
 
 PROMPT_TEMPLATE = """
+Estamos em {current_date}. O ANO ATUAL é {current_year}. Nunca use anos passados como {prev_year} ou anteriores nas buscas — se citar um ano, use {current_year} ou {next_year}.
+
 Você é um especialista em SEO e comportamento de busca. O termo "{term}" está acelerando em volume agora (fontes: {sources}).
 Entidades relacionadas detectadas: {entities}.
 
@@ -47,10 +50,15 @@ def _parse_response(content: str) -> tuple[list[str], list[str]]:
     return intents, gaps
 
 def expand_intent(finalist: Finalist, retries: int = 3) -> Prediction:
+    today = date.today()
     prompt = PROMPT_TEMPLATE.format(
         term=finalist.term,
         sources="gdelt/hn/reddit",
         entities=", ".join(finalist.entities or []) or "N/A",
+        current_date=today.strftime("%d/%m/%Y"),
+        current_year=today.year,
+        prev_year=today.year - 1,
+        next_year=today.year + 1,
     )
     for attempt in range(retries):
         try:
