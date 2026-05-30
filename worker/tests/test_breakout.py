@@ -30,10 +30,29 @@ def test_noise_series_low_score():
     result = compute_breakout_score(series)
     assert result.breakout_score < 0.35  # noise: EWMA suppresses, scores near flat-series range
 
-def test_too_short_series_returns_zero():
-    series = make_series([10, 20])
+def test_short_series_uses_bootstrap_high_volume():
+    # Cold-start with high volume: bootstrap should score it high so it surfaces day 1
+    series = make_series([300, 350])
     result = compute_breakout_score(series)
-    assert result.breakout_score == 0.0
+    assert result.bootstrap is True
+    assert result.breakout_score > 0.7
+
+def test_short_series_uses_bootstrap_low_volume():
+    # Cold-start with low volume: bootstrap should score it low
+    series = make_series([2, 3])
+    result = compute_breakout_score(series)
+    assert result.bootstrap is True
+    assert result.breakout_score < 0.3
+
+def test_empty_series_bootstrap_zero():
+    result = compute_breakout_score([])
+    assert result.bootstrap is True
+    assert result.breakout_score < 0.1
+
+def test_full_history_not_bootstrap():
+    series = make_series([1, 2, 4, 8, 16, 32, 64])
+    result = compute_breakout_score(series)
+    assert result.bootstrap is False
 
 def test_declining_series_penalized():
     series = make_series([64, 32, 16, 8, 4, 2, 1])
