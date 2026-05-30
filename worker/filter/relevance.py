@@ -30,11 +30,13 @@ def filter_by_relevance(
         return []
 
     scored = []
+    skipped = 0
     for candidate in candidates:
         try:
             term_emb = get_embedding(candidate.term)
         except Exception:
-            continue  # skip if Ollama unavailable for this term
+            skipped += 1
+            continue
 
         best_score = 0.0
         best_niche_id = niches[0]["id"]
@@ -54,6 +56,9 @@ def filter_by_relevance(
             matched_niche_id=best_niche_id,
             entities=candidate.entities,
         ))
+
+    if skipped == len(candidates):
+        raise RuntimeError(f"Ollama unavailable: all {skipped} candidates failed embedding")
 
     scored.sort(key=lambda f: f.relevance_score * f.breakout_score, reverse=True)
     return scored[:top_n]

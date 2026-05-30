@@ -37,7 +37,8 @@ def test_expand_returns_prediction():
     assert len(prediction.intents) > 0
     assert len(prediction.content_gaps) > 0
 
-def test_expand_fallback_on_groq_error():
+@patch("worker.reason.expand.time.sleep")
+def test_expand_fallback_on_groq_error(mock_sleep):
     with patch("worker.reason.expand._get_groq_client") as mock_factory:
         mock_client = MagicMock()
         mock_factory.return_value = mock_client
@@ -46,6 +47,7 @@ def test_expand_fallback_on_groq_error():
     assert isinstance(prediction, Prediction)
     assert prediction.intents == []
     assert prediction.content_gaps == []
+    assert mock_sleep.called  # verify retry backoff was attempted
 
 def test_expand_preserves_scores():
     with patch("worker.reason.expand._get_groq_client") as mock_factory:

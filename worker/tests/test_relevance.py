@@ -46,3 +46,13 @@ def test_filter_returns_finalist_type():
 def test_filter_empty_inputs():
     assert filter_by_relevance([], []) == []
     assert filter_by_relevance([], [{"id": 1, "name": "AI", "embedding": [1.0]}]) == []
+
+def test_filter_raises_when_all_embeddings_fail():
+    candidates = [BreakoutCandidate("llm agents", "hn", 0.9, 1.0, 2.0)]
+    niches = [{"id": 1, "name": "AI", "embedding": [1.0, 0.0]}]
+    with patch("worker.filter.relevance.get_embedding", side_effect=Exception("Ollama down")):
+        try:
+            filter_by_relevance(candidates, niches)
+            assert False, "Should have raised RuntimeError"
+        except RuntimeError as e:
+            assert "Ollama unavailable" in str(e)

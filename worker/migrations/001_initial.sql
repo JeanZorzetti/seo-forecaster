@@ -2,7 +2,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE niches (
   id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
+  name TEXT NOT NULL UNIQUE,
   description TEXT NOT NULL,
   embedding vector(768),
   created_at TIMESTAMPTZ DEFAULT NOW()

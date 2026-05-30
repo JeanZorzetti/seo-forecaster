@@ -17,7 +17,7 @@ if __name__ == "__main__":
         emb = get_embedding(niche["description"])
         with conn, conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO niches (name, description, embedding) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+                "INSERT INTO niches (name, description, embedding) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
                 (niche["name"], niche["description"], json.dumps(emb))
             )
     print(f"Seeded {len(NICHES)} niches.")
