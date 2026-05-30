@@ -1,0 +1,8 @@
+{
+  "data": {
+    "children": [
+      {"data": {"title": "LLM agents are replacing junior devs", "score": 450, "created_utc": 1748000000, "subreddit": "MachineLearning"}},
+      {"data": {"title": "Groq just added 10x rate limits on free tier", "score": 210, "created_utc": 1748000100, "subreddit": "LocalLLaMA"}}
+    ]
+  }
+}
