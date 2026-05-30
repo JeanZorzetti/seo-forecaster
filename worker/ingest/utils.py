@@ -66,8 +66,8 @@ def extract_terms(title: str) -> list[str]:
     # Bigrams
     for i in range(len(words) - 1):
         add(f"{words[i]} {words[i+1]}")
-    # Full title as broad term (only if it adds signal beyond the n-grams)
-    if len(full.split()) <= 8:
+    # Full title as broad term — only when it has significant words and is short
+    if words and len(full.split()) <= 8:
         add(full)
 
     return terms[:5]
