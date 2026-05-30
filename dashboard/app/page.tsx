@@ -38,7 +38,16 @@ export default async function Home({
   });
   const niches = await getNiches();
 
-  const tableData: PredictionForTable[] = predictions.map((p) => ({
+  const tableData: PredictionForTable[] = predictions.map((p: {
+    id: number;
+    term: string;
+    breakoutScore: number;
+    relevanceScore: number;
+    status: string;
+    forecast: unknown;
+    contentGaps: unknown;
+    niche: { name: string } | null;
+  }) => ({
     id: p.id,
     term: p.term,
     breakoutScore: p.breakoutScore,
