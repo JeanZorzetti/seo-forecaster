@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Niche {
+  id          Int           @id @default(autoincrement())
+  name        String        @unique
+  description String
+  createdAt   DateTime      @default(now()) @map("created_at")
+  predictions Prediction[]
+  @@map("niches")
+}
+
+model TermHistory {
+  id           Int      @id @default(autoincrement())
+  term         String
+  source       String
+  count        Int
+  observedDate DateTime @map("observed_date") @db.Date
+  @@unique([term, source, observedDate])
+  @@map("term_history")
+}
+
+model Signal {
+  id               Int      @id @default(autoincrement())
+  term             String
+  source           String
+  rawCount         Int      @map("raw_count")
+  entities         Json     @default("[]")
+  firstDerivative  Float?   @map("first_derivative")
+  secondDerivative Float?   @map("second_derivative")
+  breakoutScore    Float?   @map("breakout_score")
+  runDate          DateTime @map("run_date") @db.Date
+  createdAt        DateTime @default(now()) @map("created_at")
+  @@map("signals")
+}
+
+model Prediction {
+  id             Int      @id @default(autoincrement())
+  term           String
+  breakoutScore  Float    @map("breakout_score")
+  relevanceScore Float    @map("relevance_score")
+  matchedNicheId Int?     @map("matched_niche_id")
+  niche          Niche?   @relation(fields: [matchedNicheId], references: [id])
+  forecast       Json?
+  intents        Json     @default("[]")
+  contentGaps    Json     @default("[]") @map("content_gaps")
+  status         String   @default("emerging")
+  runDate        DateTime @map("run_date") @db.Date
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  @@unique([term, matchedNicheId])
+  @@map("predictions")
+}
+
+model Run {
+  id             Int       @id @default(autoincrement())
+  startedAt      DateTime  @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  signalsCount   Int       @default(0) @map("signals_count")
+  finalistsCount Int       @default(0) @map("finalists_count")
+  status         String    @default("running")
+  errorLog       Json      @default("[]") @map("error_log")
+  @@map("runs")
+}
