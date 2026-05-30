@@ -55,3 +55,5 @@ CREATE TABLE runs (
   status TEXT NOT NULL DEFAULT 'running',
   error_log JSONB DEFAULT '[]'
 );
+
+CREATE UNIQUE INDEX predictions_term_no_niche ON predictions(term) WHERE matched_niche_id IS NULL;
