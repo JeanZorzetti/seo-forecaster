@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { StatusBadge } from "./StatusBadge";
 import { ConfidenceBadge } from "./ConfidenceBadge";
+import { ModeBadge } from "./ModeBadge";
 
 type Prediction = {
   id: number;
@@ -44,6 +45,7 @@ export function PredictionsTable({ predictions }: { predictions: Prediction[] })
             <th className="py-2 pr-4 font-medium">Termo</th>
             <th className="py-2 pr-4 font-medium">Nicho</th>
             <th className="py-2 pr-4 font-medium">Score</th>
+            <th className="py-2 pr-4 font-medium">Modo</th>
             <th className="py-2 pr-4 font-medium">Status</th>
             <th className="py-2 pr-4 font-medium">Confiança</th>
             <th className="py-2 font-medium">Gap?</th>
@@ -52,7 +54,7 @@ export function PredictionsTable({ predictions }: { predictions: Prediction[] })
         <tbody>
           {filtered.length === 0 ? (
             <tr>
-              <td colSpan={6} className="py-8 text-center text-gray-400 text-sm">
+              <td colSpan={7} className="py-8 text-center text-gray-400 text-sm">
                 Nenhuma pauta encontrada.
               </td>
             </tr>
@@ -66,6 +68,7 @@ export function PredictionsTable({ predictions }: { predictions: Prediction[] })
                 </td>
                 <td className="py-2 pr-4 text-gray-600 text-xs">{p.niche?.name ?? "—"}</td>
                 <td className="py-2 pr-4 font-mono text-xs">{p.breakoutScore.toFixed(3)}</td>
+                <td className="py-2 pr-4"><ModeBadge forecast={p.forecast} /></td>
                 <td className="py-2 pr-4"><StatusBadge status={p.status} /></td>
                 <td className="py-2 pr-4">
                   <ConfidenceBadge confidence={p.forecast?.confidence ?? null} />
