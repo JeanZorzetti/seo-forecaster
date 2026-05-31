@@ -36,7 +36,7 @@ def test_run_pipeline_populates_predictions():
          patch("worker.pipeline.get_all_niches", return_value=[{"id": 1, "name": "AI", "description": "ai", "embedding": [1.0, 0.0]}]), \
          patch("worker.pipeline.filter_by_relevance", return_value=[Finalist("llm agents", 0.9, 0.8, 1)]), \
          patch("worker.pipeline.get_forecast", return_value=forecast_data), \
-         patch("worker.pipeline.expand_intent", return_value=prediction_obj), \
+         patch("worker.pipeline.expand_intents", return_value=[prediction_obj]), \
          patch("worker.pipeline.upsert_prediction") as mock_upsert, \
          patch("worker.pipeline.start_run", return_value=1), \
          patch("worker.pipeline.finish_run") as mock_finish:
@@ -79,7 +79,7 @@ def test_run_pipeline_partial_on_source_failure():
          patch("worker.pipeline.get_all_niches", return_value=[{"id": 1, "name": "AI", "description": "ai", "embedding": [1.0]}]), \
          patch("worker.pipeline.filter_by_relevance", return_value=[Finalist("llm agents", 0.9, 0.8, 1)]), \
          patch("worker.pipeline.get_forecast", return_value=None), \
-         patch("worker.pipeline.expand_intent", return_value=prediction_obj), \
+         patch("worker.pipeline.expand_intents", return_value=[prediction_obj]), \
          patch("worker.pipeline.upsert_prediction"), \
          patch("worker.pipeline.start_run", return_value=1), \
          patch("worker.pipeline.finish_run") as mock_finish:

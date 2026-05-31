@@ -6,7 +6,7 @@ from worker.ingest.gdelt import fetch_signals as fetch_gdelt_signals
 from worker.detect.breakout import compute_breakout_score
 from worker.filter.relevance import filter_by_relevance
 from worker.forecast.chronos import get_forecast
-from worker.reason.expand import expand_intent
+from worker.reason.expand import expand_intents
 from worker.persist.db import (
     upsert_term_history, get_term_history, get_all_niches,
     upsert_prediction, start_run, finish_run,
@@ -74,13 +74,14 @@ def run_pipeline():
         errors.append(str(e))
         finalists = []
 
-    # Stages 4+5+6: Forecast → Reason → Persist
-    for finalist in finalists:
+    # Stage 5: Reason — expand all finalists at once (paced to respect Groq TPM)
+    predictions = expand_intents(finalists)
+
+    # Stages 4+6: Forecast → Persist (per finalist)
+    for finalist, prediction in zip(finalists, predictions):
         history = get_term_history(finalist.term, "hn", days=30)
         series = [c for _, c in history]
         forecast = get_forecast(series) if len(series) >= 3 else None
-
-        prediction = expand_intent(finalist)
         prediction.forecast = forecast
 
         if forecast:
