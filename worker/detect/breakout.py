@@ -7,7 +7,10 @@ SIGMOID_SHIFT = 1.0   # Score exceeds 0.5 only when second_deriv > 1.0 — avoid
 
 # Bootstrap (cold-start): until we have enough history to measure acceleration,
 # rank terms by raw volume so the dashboard is never empty on day 1.
-BOOTSTRAP_VOLUME_MIDPOINT = 50.0  # raw count that maps to a 0.5 bootstrap score
+# Calibrated for LLM-extracted keywords, whose per-day volume is low (median ~2,
+# max ~8) because keywords are diverse and don't accumulate like raw bigrams did.
+# midpoint=3 → a term seen ~3+ times in a day scores >= 0.5 (top ~20% surface).
+BOOTSTRAP_VOLUME_MIDPOINT = 3.0  # raw count that maps to a 0.5 bootstrap score
 
 
 @dataclass

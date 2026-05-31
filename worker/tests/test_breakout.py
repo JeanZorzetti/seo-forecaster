@@ -38,16 +38,24 @@ def test_short_series_uses_bootstrap_high_volume():
     assert result.breakout_score > 0.7
 
 def test_short_series_uses_bootstrap_low_volume():
-    # Cold-start with low volume: bootstrap should score it low
-    series = make_series([2, 3])
+    # Cold-start with low volume (1): bootstrap should score it below the 0.5 threshold
+    series = make_series([1, 1])
     result = compute_breakout_score(series)
     assert result.bootstrap is True
-    assert result.breakout_score < 0.3
+    assert result.breakout_score < 0.5
 
-def test_empty_series_bootstrap_zero():
+def test_bootstrap_volume_at_midpoint_scores_half():
+    # A term at the calibrated midpoint volume scores ~0.5 (the gate threshold)
+    series = make_series([3, 3])
+    result = compute_breakout_score(series)
+    assert result.bootstrap is True
+    assert 0.45 <= result.breakout_score <= 0.55
+
+def test_empty_series_bootstrap_below_threshold():
+    # Empty / zero-volume series scores well below the 0.5 gate (never surfaces)
     result = compute_breakout_score([])
     assert result.bootstrap is True
-    assert result.breakout_score < 0.1
+    assert result.breakout_score < 0.5
 
 def test_full_history_not_bootstrap():
     series = make_series([1, 2, 4, 8, 16, 32, 64])
