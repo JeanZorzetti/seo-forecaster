@@ -1,42 +1,15 @@
 import time
 import logging
 from datetime import date
-from groq import Groq
-from worker.config import GROQ_API_KEY
+from worker.config import LLM_PROVIDER
+from worker.llm import chat, is_rate_limited
 from worker.models import Finalist, Prediction
 
 logger = logging.getLogger(__name__)
 
-# Each expansion call costs ~700-900 tokens. The Groq free tier caps at 12k
-# tokens/minute, so we pace calls (~4s apart → ~15/min) and, on the first 429,
-# stop calling Groq for the rest of the run (remaining finalists get empty
-# expansion rather than blocking on slow retries).
-EXPAND_SLEEP_SECONDS = 4.0
-
-_groq_client = None
-
-
-def _get_groq_client() -> Groq:
-    global _groq_client
-    if _groq_client is None:
-        # max_retries=0: we handle 429 ourselves instead of blocking ~9s/retry.
-        _groq_client = Groq(api_key=GROQ_API_KEY, max_retries=0)
-    return _groq_client
-
-
-def _is_rate_limit(err: Exception) -> bool:
-    msg = str(err).lower()
-    return "429" in msg or "rate_limit" in msg or "rate limit" in msg
-
-
-def _rate_limit_kind(err: Exception) -> str:
-    """Distinguish a per-day cap (resets in 24h) from a per-minute cap."""
-    msg = str(err).lower()
-    if "per day" in msg or "rpd" in msg or "requests per day" in msg:
-        return "daily quota (RPD) exhausted — resets in ~24h"
-    if "per minute" in msg or "tpm" in msg or "tokens per minute" in msg:
-        return "per-minute quota (TPM) — resets within a minute"
-    return "rate limit"
+# Pacing between calls. Only needed for Groq's per-minute token cap; Ollama is
+# local and unlimited, so we don't sleep there.
+EXPAND_SLEEP_SECONDS = 4.0 if LLM_PROVIDER == "groq" else 0.0
 
 
 PROMPT_TEMPLATE = """
@@ -103,14 +76,7 @@ def expand_intent(finalist: Finalist, retries: int = 3) -> Prediction:
     )
     for attempt in range(retries):
         try:
-            client = _get_groq_client()
-            resp = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=512,
-            )
-            content = resp.choices[0].message.content
+            content = chat(prompt, max_tokens=512)
             intents, gaps = _parse_response(content)
             return Prediction(
                 term=finalist.term,
@@ -122,8 +88,8 @@ def expand_intent(finalist: Finalist, retries: int = 3) -> Prediction:
                 status="emerging",
             )
         except Exception as e:
-            if _is_rate_limit(e):
-                raise  # let the batch driver stop calling Groq
+            if is_rate_limited(e):
+                raise  # let the batch driver stop calling the provider
             if attempt < retries - 1:
                 time.sleep(2 ** attempt)
 
@@ -133,10 +99,8 @@ def expand_intent(finalist: Finalist, retries: int = 3) -> Prediction:
 
 def expand_intents(finalists: list[Finalist]) -> list[Prediction]:
     """
-    Expand many finalists with pacing to respect the Groq free-tier TPM cap.
-
-    Calls are spaced EXPAND_SLEEP_SECONDS apart. On the first rate-limit error,
-    we stop calling Groq and return empty expansions for the rest of the run.
+    Expand many finalists. With Ollama (default) this runs unthrottled. With
+    Groq, calls are paced and we stop after the first rate-limit error.
     """
     predictions: list[Prediction] = []
     rate_limited = False
@@ -149,19 +113,16 @@ def expand_intents(finalists: list[Finalist]) -> list[Prediction]:
         try:
             predictions.append(expand_intent(finalist))
         except Exception as e:
-            if _is_rate_limit(e):
+            if is_rate_limited(e):
                 logger.warning(
-                    f"[expand] Groq rate limit — {_rate_limit_kind(e)}. "
-                    "Empty expansion (intents/gaps) for the rest of this run; "
-                    "pautas still saved with score + status."
+                    "[expand] Groq rate limit hit — empty expansion for the rest "
+                    "of this run; pautas still saved with score + status. "
+                    "Tip: set LLM_PROVIDER=ollama to avoid rate limits."
                 )
                 rate_limited = True
-                predictions.append(_empty_prediction(finalist))
-            else:
-                predictions.append(_empty_prediction(finalist))
+            predictions.append(_empty_prediction(finalist))
 
-        # Pace the next call to stay under the TPM cap (skip after the last one).
-        if i < len(finalists) - 1 and not rate_limited:
+        if EXPAND_SLEEP_SECONDS and i < len(finalists) - 1 and not rate_limited:
             time.sleep(EXPAND_SLEEP_SECONDS)
 
     return predictions
