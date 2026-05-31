@@ -29,6 +29,16 @@ def _is_rate_limit(err: Exception) -> bool:
     return "429" in msg or "rate_limit" in msg or "rate limit" in msg
 
 
+def _rate_limit_kind(err: Exception) -> str:
+    """Distinguish a per-day cap (resets in 24h) from a per-minute cap."""
+    msg = str(err).lower()
+    if "per day" in msg or "rpd" in msg or "requests per day" in msg:
+        return "daily quota (RPD) exhausted — resets in ~24h"
+    if "per minute" in msg or "tpm" in msg or "tokens per minute" in msg:
+        return "per-minute quota (TPM) — resets within a minute"
+    return "rate limit"
+
+
 PROMPT_TEMPLATE = """
 Estamos em {current_date}. O ANO ATUAL é {current_year}. Nunca use anos passados como {prev_year} ou anteriores nas buscas — se citar um ano, use {current_year} ou {next_year}.
 
@@ -141,7 +151,9 @@ def expand_intents(finalists: list[Finalist]) -> list[Prediction]:
         except Exception as e:
             if _is_rate_limit(e):
                 logger.warning(
-                    "[expand] Groq TPM hit — empty expansion for the rest of this run"
+                    f"[expand] Groq rate limit — {_rate_limit_kind(e)}. "
+                    "Empty expansion (intents/gaps) for the rest of this run; "
+                    "pautas still saved with score + status."
                 )
                 rate_limited = True
                 predictions.append(_empty_prediction(finalist))
