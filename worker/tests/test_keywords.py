@@ -67,3 +67,36 @@ def test_extract_keywords_batch_per_title_fallback_on_empty_result():
         mock_client.chat.completions.create.return_value = _mock_groq_response(payload)
         result = extract_keywords_batch(titles)
     assert len(result[0]) > 0  # fell back to n-grams
+
+
+def test_rate_limit_stops_calling_groq():
+    # 30 titles → 2 batches of 15. First batch 429s; second must NOT call Groq.
+    titles = [f"cybersecurity report number {i}" for i in range(30)]
+    with patch("worker.ingest.keywords._get_groq_client") as mock_factory, \
+         patch("worker.ingest.keywords.time.sleep"):
+        mock_client = MagicMock()
+        mock_factory.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception(
+            "Error code: 429 - rate_limit_exceeded"
+        )
+        result = extract_keywords_batch(titles)
+    # Only one Groq call attempted (the second batch is skipped after 429)
+    assert mock_client.chat.completions.create.call_count == 1
+    # Every title still gets keywords via n-gram fallback
+    assert all(len(r) > 0 for r in result)
+
+
+def test_caps_titles_sent_to_llm():
+    from worker.ingest import keywords as kw
+    # 200 titles, but only LLM_MAX_TITLES go to the LLM; rest use n-grams.
+    titles = [f"machine learning topic {i}" for i in range(200)]
+    payload = {"results": [["ml topic"]] * 15}
+    with patch("worker.ingest.keywords._get_groq_client") as mock_factory, \
+         patch("worker.ingest.keywords.time.sleep"):
+        mock_client = MagicMock()
+        mock_factory.return_value = mock_client
+        mock_client.chat.completions.create.return_value = _mock_groq_response(payload)
+        result = extract_keywords_batch(titles)
+    expected_batches = (kw.LLM_MAX_TITLES + 14) // 15
+    assert mock_client.chat.completions.create.call_count == expected_batches
+    assert len(result) == 200  # all titles covered (LLM + n-gram)
