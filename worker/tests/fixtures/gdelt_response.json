@@ -1,5 +1,0 @@
-[
-  {"theme": "ARTIFICIAL_INTELLIGENCE", "mention_count": 342, "avg_tone": 2.1, "entities": ["OpenAI", "ChatGPT"]},
-  {"theme": "CRYPTOCURRENCY_CRASH", "mention_count": 180, "avg_tone": -3.4, "entities": ["Bitcoin", "Ethereum"]},
-  {"theme": "CLIMATE_CHANGE_FLOOD", "mention_count": 95, "avg_tone": -5.2, "entities": ["Brazil", "Amazon"]}
-]
