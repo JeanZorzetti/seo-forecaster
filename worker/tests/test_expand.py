@@ -11,18 +11,19 @@ def make_finalist(term="llm agents replacing devs"):
         entities=["OpenAI", "Anthropic"],
     )
 
-FULL_RESPONSE = """
-## Long-tail searches
-1. como usar agentes llm no trabalho
-2. llm agents tutorial em português
-3. ferramentas de agentes ia para devs
-4. llm agents vs copilot diferença
-5. como criar agente llm com python
-
-## Content gaps
-- Nenhum guia em PT-BR explica como criar um agente do zero
-- Comparativos de ferramentas ainda sem benchmark local
-"""
+FULL_RESPONSE = """{
+  "long_tail": [
+    "como usar agentes llm no trabalho",
+    "llm agents tutorial em português",
+    "ferramentas de agentes ia para devs",
+    "llm agents vs copilot diferença",
+    "como criar agente llm com python"
+  ],
+  "content_gaps": [
+    "Nenhum guia em PT-BR explica como criar um agente do zero",
+    "Comparativos de ferramentas ainda sem benchmark local"
+  ]
+}"""
 
 def test_expand_returns_prediction():
     with patch("worker.reason.expand.chat", return_value=FULL_RESPONSE):
@@ -53,8 +54,23 @@ def test_expand_reraises_rate_limit():
         except Exception as e:
             assert "429" in str(e)
 
+def test_expand_parses_json_with_surrounding_prose():
+    # Small models sometimes wrap JSON in text — parser must still extract it.
+    noisy = 'Claro! Aqui está:\n{"long_tail": ["busca a", "busca b"], "content_gaps": ["gap x"]}\nEspero ter ajudado.'
+    with patch("worker.reason.expand.chat", return_value=noisy):
+        p = expand_intent(make_finalist())
+    assert p.intents == ["busca a", "busca b"]
+    assert p.content_gaps == ["gap x"]
+
+def test_expand_strips_extra_quotes():
+    # Real qwen output had items wrapped in literal double-quotes.
+    resp = '{"long_tail": ["\\"busca com aspas\\""], "content_gaps": []}'
+    with patch("worker.reason.expand.chat", return_value=resp):
+        p = expand_intent(make_finalist())
+    assert p.intents == ["busca com aspas"]  # outer quotes stripped
+
 def test_expand_preserves_scores():
-    with patch("worker.reason.expand.chat", return_value="## Long-tail searches\n1. test\n## Content gaps\n- gap"):
+    with patch("worker.reason.expand.chat", return_value='{"long_tail": ["test"], "content_gaps": ["gap"]}'):
         prediction = expand_intent(make_finalist())
     assert prediction.breakout_score == 0.9
     assert prediction.relevance_score == 0.85
@@ -65,7 +81,7 @@ def test_expand_preserves_scores():
 
 def test_expand_intents_all_succeed():
     finalists = [make_finalist(f"term {i}") for i in range(3)]
-    with patch("worker.reason.expand.chat", return_value="## Long-tail searches\n1. a\n## Content gaps\n- b"):
+    with patch("worker.reason.expand.chat", return_value='{"long_tail": ["a"], "content_gaps": ["b"]}'):
         preds = expand_intents(finalists)
     assert len(preds) == 3
     assert all(len(p.intents) > 0 for p in preds)

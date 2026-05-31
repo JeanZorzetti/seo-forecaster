@@ -1,3 +1,5 @@
+import json
+import re
 import time
 import logging
 from datetime import date
@@ -12,42 +14,43 @@ logger = logging.getLogger(__name__)
 EXPAND_SLEEP_SECONDS = 4.0 if LLM_PROVIDER == "groq" else 0.0
 
 
-PROMPT_TEMPLATE = """
-Estamos em {current_date}. O ANO ATUAL é {current_year}. Nunca use anos passados como {prev_year} ou anteriores nas buscas — se citar um ano, use {current_year} ou {next_year}.
+# Ask for JSON directly — far more robust than parsing markdown headings, which
+# small models format inconsistently. qwen2.5 and llama-3.3 both follow this well.
+PROMPT_TEMPLATE = """Estamos em {current_date}. O ANO ATUAL é {current_year}. Nunca use anos passados como {prev_year} ou anteriores — se citar um ano, use {current_year} ou {next_year}.
 
-Você é um especialista em SEO e comportamento de busca. O termo "{term}" está acelerando em volume agora (fontes: {sources}).
-Entidades relacionadas detectadas: {entities}.
+Você é um especialista em SEO. O termo "{term}" está acelerando em volume agora (fontes: {sources}). Entidades detectadas: {entities}.
 
-Faça engenharia reversa da intenção de busca e responda EXATAMENTE neste formato:
+Faça engenharia reversa da intenção de busca. Responda APENAS um objeto JSON válido, sem texto antes ou depois, exatamente neste formato:
+{{
+  "long_tail": ["busca 1", "busca 2", "busca 3", "busca 4", "busca 5"],
+  "content_gaps": ["dor informacional sem resposta", "dor comercial sem resposta"]
+}}
 
-## Long-tail searches
-1. [busca exata que as pessoas farão em 2 semanas]
-2. [busca exata]
-3. [busca exata]
-4. [busca exata]
-5. [busca exata]
-
-## Content gaps
-- [dor informacional ainda sem resposta nas grandes mídias]
-- [dor comercial ainda sem resposta]
-
-Seja direto e técnico. Sem introduções.
-"""
+As buscas devem ser termos exatos que as pessoas digitarão em 2 semanas. Seja técnico e específico."""
 
 
 def _parse_response(content: str) -> tuple[list[str], list[str]]:
-    intents, gaps = [], []
-    section = None
-    for line in content.splitlines():
-        line = line.strip()
-        if "Long-tail" in line:
-            section = "intents"
-        elif "Content gaps" in line:
-            section = "gaps"
-        elif section == "intents" and line and line[0].isdigit():
-            intents.append(line.split(".", 1)[-1].strip())
-        elif section == "gaps" and line.startswith("-"):
-            gaps.append(line[1:].strip())
+    """Extract long_tail + content_gaps from a JSON response (tolerant of prose)."""
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    if not match:
+        return [], []
+    try:
+        data = json.loads(match.group(0))
+    except Exception:
+        return [], []
+
+    def _clean_list(v) -> list[str]:
+        if not isinstance(v, list):
+            return []
+        out = []
+        for item in v:
+            s = str(item).strip().strip('"').strip()
+            if s:
+                out.append(s)
+        return out
+
+    intents = _clean_list(data.get("long_tail"))
+    gaps = _clean_list(data.get("content_gaps"))
     return intents, gaps
 
 
@@ -76,8 +79,11 @@ def expand_intent(finalist: Finalist, retries: int = 3) -> Prediction:
     )
     for attempt in range(retries):
         try:
-            content = chat(prompt, max_tokens=512)
+            content = chat(prompt, max_tokens=700)
             intents, gaps = _parse_response(content)
+            # Empty parse on a 200 response → retry once (model formatting hiccup)
+            if not intents and not gaps and attempt < retries - 1:
+                continue
             return Prediction(
                 term=finalist.term,
                 breakout_score=finalist.breakout_score,
@@ -93,7 +99,6 @@ def expand_intent(finalist: Finalist, retries: int = 3) -> Prediction:
             if attempt < retries - 1:
                 time.sleep(2 ** attempt)
 
-    # Fallback: save without expansion rather than lose the pauta
     return _empty_prediction(finalist)
 
 
@@ -116,8 +121,7 @@ def expand_intents(finalists: list[Finalist]) -> list[Prediction]:
             if is_rate_limited(e):
                 logger.warning(
                     "[expand] Groq rate limit hit — empty expansion for the rest "
-                    "of this run; pautas still saved with score + status. "
-                    "Tip: set LLM_PROVIDER=ollama to avoid rate limits."
+                    "of this run. Tip: set LLM_PROVIDER=ollama to avoid rate limits."
                 )
                 rate_limited = True
             predictions.append(_empty_prediction(finalist))
