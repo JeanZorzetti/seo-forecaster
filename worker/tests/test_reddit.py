@@ -11,9 +11,14 @@ FIXTURE_RESPONSE = {
     }
 }
 
+# Deterministic keyword extraction so tests don't hit Groq.
+def _fake_extract(titles, batch_size=30):
+    return [[t.lower()] if t.strip() else [] for t in titles]
+
 def test_fetch_signals_returns_signals():
     with patch("worker.ingest.reddit.requests.get") as mock_get, \
-         patch("worker.ingest.reddit.time.sleep"):
+         patch("worker.ingest.reddit.time.sleep"), \
+         patch("worker.ingest.reddit.extract_keywords_batch", side_effect=_fake_extract):
         mock_resp = MagicMock()
         mock_resp.json.return_value = FIXTURE_RESPONSE
         mock_resp.raise_for_status.return_value = None
@@ -28,7 +33,8 @@ def test_fetch_signals_returns_signals():
 
 def test_fetch_signals_handles_empty():
     with patch("worker.ingest.reddit.requests.get") as mock_get, \
-         patch("worker.ingest.reddit.time.sleep"):
+         patch("worker.ingest.reddit.time.sleep"), \
+         patch("worker.ingest.reddit.extract_keywords_batch", side_effect=_fake_extract):
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"data": {"children": []}}
         mock_resp.raise_for_status.return_value = None
@@ -38,7 +44,8 @@ def test_fetch_signals_handles_empty():
 
 def test_fetch_signals_continues_on_error():
     with patch("worker.ingest.reddit.requests.get") as mock_get, \
-         patch("worker.ingest.reddit.time.sleep"):
+         patch("worker.ingest.reddit.time.sleep"), \
+         patch("worker.ingest.reddit.extract_keywords_batch", side_effect=_fake_extract):
         mock_get.side_effect = Exception("connection refused")
         signals = fetch_signals(subreddits=["banned_sub"])
     assert signals == []
