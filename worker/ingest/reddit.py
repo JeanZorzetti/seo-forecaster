@@ -3,7 +3,7 @@ import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from worker.models import Signal
-from worker.ingest.keywords import extract_keywords_batch
+from worker.ingest.utils import extract_terms
 
 DEFAULT_SUBREDDITS = [
     "MachineLearning", "LocalLLaMA", "technology", "programming",
@@ -65,12 +65,10 @@ def fetch_signals(subreddits: list[str] | None = None) -> list[Signal]:
     if not posts:
         return []
 
-    titles = [t for t, _ in posts]
-    keywords_per_title = extract_keywords_batch(titles)
-
+    # Local n-gram extraction (no LLM) — Groq is reserved for the expansion step.
     signals = []
-    for (title, ts), terms in zip(posts, keywords_per_title):
-        for term in terms:
+    for title, ts in posts:
+        for term in extract_terms(title):
             signals.append(Signal(
                 term=term,
                 source="reddit",

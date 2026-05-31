@@ -15,10 +15,6 @@ RSS_SAMPLE = """<?xml version="1.0" encoding="UTF-8"?>
   </entry>
 </feed>"""
 
-# Deterministic keyword extraction so tests don't hit Groq.
-def _fake_extract(titles, batch_size=30):
-    return [[t.lower()] if t.strip() else [] for t in titles]
-
 
 def test_parse_rss_extracts_entries():
     entries = _parse_rss(RSS_SAMPLE)
@@ -35,8 +31,7 @@ def test_parse_rss_handles_malformed():
 
 def test_fetch_signals_returns_signals():
     with patch("worker.ingest.reddit.requests.get") as mock_get, \
-         patch("worker.ingest.reddit.time.sleep"), \
-         patch("worker.ingest.reddit.extract_keywords_batch", side_effect=_fake_extract):
+         patch("worker.ingest.reddit.time.sleep"):
         mock_resp = MagicMock()
         mock_resp.text = RSS_SAMPLE
         mock_resp.raise_for_status.return_value = None
@@ -45,6 +40,7 @@ def test_fetch_signals_returns_signals():
     assert len(signals) > 0
     assert all(isinstance(s, Signal) for s in signals)
     assert all(s.source == "reddit" for s in signals)
+    # content via local n-gram extraction
     assert any("llm agents" in s.term for s in signals)
     assert all(s.raw_count == 1 for s in signals)
     assert all(s.timestamp.tzinfo is not None for s in signals)
@@ -52,8 +48,7 @@ def test_fetch_signals_returns_signals():
 
 def test_fetch_signals_handles_empty():
     with patch("worker.ingest.reddit.requests.get") as mock_get, \
-         patch("worker.ingest.reddit.time.sleep"), \
-         patch("worker.ingest.reddit.extract_keywords_batch", side_effect=_fake_extract):
+         patch("worker.ingest.reddit.time.sleep"):
         mock_resp = MagicMock()
         mock_resp.text = '<feed xmlns="http://www.w3.org/2005/Atom"></feed>'
         mock_resp.raise_for_status.return_value = None
@@ -64,8 +59,7 @@ def test_fetch_signals_handles_empty():
 
 def test_fetch_signals_continues_on_error():
     with patch("worker.ingest.reddit.requests.get") as mock_get, \
-         patch("worker.ingest.reddit.time.sleep"), \
-         patch("worker.ingest.reddit.extract_keywords_batch", side_effect=_fake_extract):
+         patch("worker.ingest.reddit.time.sleep"):
         mock_get.side_effect = Exception("403 Forbidden")
         signals = fetch_signals(subreddits=["banned_sub"])
     assert signals == []
